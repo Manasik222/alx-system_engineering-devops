@@ -1,2 +1,0 @@
-echo "cat etc/passwd">> 2-hellofile
-echo echocat etc/passwd
