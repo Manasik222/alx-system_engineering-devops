@@ -1,4 +1,5 @@
-#!/on to recursively GET the count of the specified words occuring
+#!/usr/bin/python3
+"""on to recursively GET the count of the specified words occuring
 in the titles of the hot posts from a give subreddit"""
 from requests import get
 
