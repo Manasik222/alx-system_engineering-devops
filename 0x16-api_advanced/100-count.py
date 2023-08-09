@@ -1,55 +1,71 @@
 #!/usr/bin/python3
-"""Function to count words in all hot posts of a given Reddit subreddit."""
+"""
+Module parses titles of subreddits to count word occurances
+"""
 import requests
+import re
 
 
-def count_words(subreddit, word_list, instances={}, after="", count=0):
-    """Prints counts of given words found in hot posts of a given subreddit.
+def count_words(subreddit, word_list, after=None, word_dict={}):
+    """`count_words` populates `word_dict` with count of words
 
     Args:
-        subreddit (str): The subreddit to search.
-        word_list (list): The list of words to search for in post titles.
-        instances (obj): Key/value pairs of words/counts.
-        after (str): The parameter for the next page of the API results.
-        count (int): The parameter of results matched thus far.
+        subreddit (str): Name of subreddit to query info
+        word_list (list, optional): List of words to search in subreddit
+        titles
+        after (str, optional): value of query string used to traverse
+        paginated json response
+        word_dict (dictionary, optional): Dictionary to hold repetition count
+        of words found in `word_list`
+
+    Returns:
+        None
     """
-    url = "https://www.reddit.com/r/{}/hot/.json".format(subreddit)
-    headers = {
-        "User-Agent": "linux:0x16.api.advanced:v1.0.0 (by /u/bdov_)"
-    }
-    params = {
-        "after": after,
-        "count": count,
-        "limit": 100
-    }
-    response = requests.get(url, headers=headers, params=params,
-                            allow_redirects=False)
     try:
-        results = response.json()
-        if response.status_code == 404:
-            raise Exception
-    except Exception:
-        print("")
-        return
+        if len(word_dict) != 0 and after is None:
+            return None
+        base_url = (
+            "https://www.reddit.com/r/{}/hot.json{}"
+            .format(
+                subreddit,
+                "?after="+after if after is not None else ""
+            )
+        )
+        res = requests.get(
+            base_url,
+            headers={"User-agent": "PostmanRuntime/7.28.4"},
+            allow_redirects=False
+        )
+        for child in res.json().get("data").get("children"):
+            search_list(
+                word_list,
+                word_dict,
+                child.get("data").get("title")
+            )
 
-    results = results.get("data")
-    after = results.get("after")
-    count += results.get("dist")
-    for c in results.get("children"):
-        title = c.get("data").get("title").lower().split()
-        for word in word_list:
-            if word.lower() in title:
-                times = len([t for t in title if t == word.lower()])
-                if instances.get(word) is None:
-                    instances[word] = times
-                else:
-                    instances[word] += times
+        after = res.json().get("data").get("after")
+        count_words(subreddit, word_dict, after, word_dict)
+        if len(word_dict) != 0:
+            for k, v in word_dict.items():
+                print("{}: {}".format(k, v))
+            word_dict.clear()
+    except Exception as e:
+        return None
 
-    if after is None:
-        if len(instances) == 0:
-            print("")
-            return
-        instances = sorted(instances.items(), key=lambda kv: (-kv[1], kv[0]))
-        [print("{}: {}".format(k, v)) for k, v in instances]
-    else:
-        count_words(subreddit, word_list, instances, after, count)
+
+def search_list(word_list, word_dict, title):
+    """Search `title` for words in `word_list` and populate `word_dict`
+
+    Args:
+        word_list (list): List of words to search in subreddit
+        titles
+        word_dict (dictionary): Dictionary to hold repetition count
+        of words found in `word_list`
+        title (str): Subreddit title to be searched
+    """
+    for word in title.split():
+        if word.lower() in " ".join(word_list).lower().split():
+            if word_dict.get(word.lower()):
+                word_dict[word.lower()] += 1
+            else:
+                word_dict[word.lower()] = 1
